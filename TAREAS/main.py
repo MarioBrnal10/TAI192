@@ -71,3 +71,44 @@ tareas = [
 @app.get('/', tags=['API para la Gestion de Tareas'])
 def home():
     return {'Tareas': 'UPQ'}
+
+# Endpoint Para ver Tareas
+@app.get('/tareas', tags=['Tareas'])
+def ver_tarea():
+  return {"Todas Las Tareas Son": tareas}
+
+# Endpoint para obtener una tarea en especifico
+@app.get('/tareas/{tarea_id}', tags=['Tareas'])
+def consultarTarea(tarea_id: int):
+    for tar in tareas:
+        if tar["id"] == tarea_id:
+            return {"La Tarea Con Ese Id es": tar}
+    return {"Mensaje": f"No Hay ninguna Tarea Con Ese Id: {tarea_id}"}
+  
+
+# Endopint para  Crear Una Nueva Tarea4
+@app.post('/tareas/', tags=['Tareas'])
+def agregarTarea(tarea:dict):
+    for tar in tareas:
+        if tar["id"] == tarea.get("id"):
+            raise HTTPException(status_code=400, detail="Ya Existe Una Tarea Con Ese Id")
+    tareas.append(tarea)
+    return tarea
+  
+# Endpoint Actualizar Tarea
+@app.put('/tarea/{id}', tags=['Tareas'])
+def actualizarTarea(id: int, tareaActualizada:dict):
+  for index, tar in enumerate(tareas):
+    if tar["id"] == id:
+      tareas[index].update(tareaActualizada)
+      return tareas[index]
+  raise HTTPException(status_code=400, detail="No Existe Una Tarea Con Ese Id")
+
+#Endpoint Eliminar tarea
+@app.delete('/tarea/{id}', tags=['Tareas'])
+def eliminarTarea(id: int):
+      for tar in tareas:
+        if tar["id"] == id:
+            tareas.remove(tar)
+            raise HTTPException(status_code=400, detail="Tarea Eliminada")
+      return {"La Tarea Ya no Exixte"}
