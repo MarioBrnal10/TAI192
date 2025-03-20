@@ -4,6 +4,10 @@ from typing import Optional, List
 from modelsPydantic import modeloUsuario, modeloAuth
 from genTokens import createToken
 from middlewares import BearerJWT
+from DB.conexion import Session, engine, Base 
+from models.modelsDB import User
+
+
 
 
 app = FastAPI(
@@ -11,6 +15,8 @@ app = FastAPI(
     description='Bernal',
     version='1.0.1'
 )
+
+Base.metadata.create_all(bind=engine)
 
 
 
@@ -46,11 +52,20 @@ def leer_usuarios():
 #endpoint Agregar nuevos
 @app.post('/usuario/', response_model= modeloUsuario, tags=['Operaciones CRUD'])
 def agregarUsuario(usuario: modeloUsuario):
-    for usr in usuarios:
-        if usr["id"] == usuario.id:
-            raise HTTPException(status_code=400, detail="El id ya Existe")
-    usuarios.append(usuario)
-    return usuario
+    db = Session()
+    try:
+        db.add(User(**usuario.model_dump()))
+        db.commit()
+        return JSONResponse(status_code=201,
+                            content={"message": "Usuario Guardado",
+                            "usuario": usuario.model_dump()})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500,
+                            content={"message": "Error al Guardar al Usuario",
+                            "Exception":str(e)})
+    finally:
+        db.close()
 
 # Endpoint Actualizar Usuarios
 @app.put('/usuario/{id}', response_model= modeloUsuario, tags=['Operaciones CRUD'])
