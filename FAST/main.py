@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends 
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from typing import Optional, List
 from modelsPydantic import modeloUsuario, modeloAuth
 from genTokens import createToken
@@ -45,9 +46,35 @@ def login(autorizacion: modeloAuth):
 
 
 # Endpoint CONSULTA TODOS
-@app.get("/todoUsuarios", dependencies=[Depends(BearerJWT())], response_model=List[modeloUsuario], tags=["Operaciones CRUD"])
+@app.get("/todoUsuarios", tags=["Operaciones CRUD"])
 def leer_usuarios():
-    return usuarios
+    db = Session()
+    try:
+        consulta = db.query(User).all()
+        return JSONResponse(content=jsonable_encoder(consulta))
+    except Exception as e:
+        return JSONResponse(status_code=500,
+                            content={"message": "Error al Consultar",
+                            "Exception":str(e)})
+    finally:
+        db.close()
+        
+# Endpoint consulta por id
+@app.get("/Usuarios/{id}", tags=["Operaciones CRUD"])
+def buscarUno(id:int):
+    db = Session()
+    try:
+        consultaUno = db.query(User).filter(User.id == id).first()
+        
+        if not consultaUno:
+            return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
+        return JSONResponse(content=jsonable_encoder(consultaUno))
+    except Exception as e:
+        return JSONResponse(status_code=500,
+                            content={"message": "Error al Consultar",
+                            "Exception":str(e)})
+    finally:
+        db.close()
 
 #endpoint Agregar nuevos
 @app.post('/usuario/', response_model= modeloUsuario, tags=['Operaciones CRUD'])
@@ -67,20 +94,40 @@ def agregarUsuario(usuario: modeloUsuario):
     finally:
         db.close()
 
-# Endpoint Actualizar Usuarios
+# Endpoint Actualizar Usuarios de la base de datos
 @app.put('/usuario/{id}', response_model= modeloUsuario, tags=['Operaciones CRUD'])
 def actualizarUsuario(id:int, usuarioActualizado:modeloUsuario):
-    for index, usr in enumerate(usuarios):
-        if usr["id"] == id:
-            usuarios[index] = usuarioActualizado.model_dump()
-            return usuarios[index]
-    raise HTTPException(status_code=400, detail="El usuario no existe")
-            
-#endpoint Eliminar Usuarios
+    db = Session()
+    try:
+        consulta = db.query(User).filter(User.id == id).first()
+        if not consulta:
+            return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
+        db.query(User).filter(User.id == id).update(usuarioActualizado.model_dump())
+        db.commit()
+        return JSONResponse(content={"message": "Usuario Actualizado",
+                                    "Usuario": usuarioActualizado.model_dump()})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500,
+                            content={"message": "Error al Actualizar al Usuario",
+                            "Exception":str(e)})
+    finally:
+        db.close()
+#endpoint Eliminar Usuarios de la base de datos
 @app.delete('/usuario/{id}', response_model= modeloUsuario, tags=['Operaciones CRUD'])
 def eliminarUsuario(id:int):
-    for usr in usuarios:
-        if usr["id"] == id:
-            usuarios.remove(usr)
-            raise HTTPException(status_code=400, detail="El Esuario Eliminado")
-    return {"El id Ya no Existe"}
+    db = Session()
+    try:
+        consulta = db.query(User).filter(User.id == id).first()
+        if not consulta:
+            return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
+        db.delete(consulta)
+        db.commit()
+        return JSONResponse(content={"message": "Usuario Eliminado"})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500,
+                            content={"message": "Error al Eliminar al Usuario",
+                            "Exception":str(e)})
+    finally:
+        db.close()
